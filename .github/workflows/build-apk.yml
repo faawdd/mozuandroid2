@@ -104,12 +104,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p dist
-          find build -type f -name "*.apk" | sort > dist/apk_files.txt
+          find build -type f -name "*.apk" | sort -u > dist/apk_files.txt
           if [ ! -s dist/apk_files.txt ]; then
             echo "No APK files found to package."
             exit 1
           fi
-          xargs -a dist/apk_files.txt zip -j dist/mozuapp-apks.zip
+          rm -f dist/mozuapp-apks.zip
+          zip dist/mozuapp-apks.zip -@ < dist/apk_files.txt
 
       - name: Upload APKs to Release
         uses: actions/upload-release-asset@v1
