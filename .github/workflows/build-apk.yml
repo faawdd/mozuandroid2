@@ -63,9 +63,17 @@ jobs:
             --build-version "${BUILD_VERSION}" \
             --build-number "${GITHUB_RUN_NUMBER}"
 
+      - name: List generated APK files
+        shell: bash
+        run: |
+          find build -type f -name "*.apk" | sort || true
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: mozo-flet-apk
-          path: build/apk/*-release.apk
+          path: |
+            build/apk/*.apk
+            build/apk/**/*.apk
+            build/flutter/build/app/outputs/flutter-apk/*.apk
           if-no-files-found: error

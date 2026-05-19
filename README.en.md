@@ -1,5 +1,15 @@
 # MoZu Android
 
+> Default display: Simplified Chinese | 中文版: [README.md](README.md)
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Brand-MoZu-111111?style=for-the-badge" alt="Brand: MoZu">
+  <img src="https://img.shields.io/badge/Mobile-Android-3DDC84?style=for-the-badge&logo=android&logoColor=white" alt="Android">
+  <img src="https://img.shields.io/badge/UI-Flet-0D1117?style=for-the-badge&logo=flutter&logoColor=46D1FD" alt="Flet">
+  <img src="https://img.shields.io/badge/CMS-Hugo-AF2B1E?style=for-the-badge&logo=hugo&logoColor=white" alt="Hugo">
+  <img src="https://img.shields.io/badge/CI-GitHub_Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white" alt="GitHub Actions">
+</p>
+
 <p align="center">
   <img src="assets/icons/mozu.svg" alt="MoZu Icon" width="120">
 </p>
