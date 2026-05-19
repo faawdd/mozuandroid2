@@ -735,7 +735,7 @@ class MozuMobileApp:
             filename = f"{base_name}-{datetime.now().strftime('%Y%m%d-%H%M%S')}.md"
 
         self.current_article = ArticleDraft(
-            path=f"{POSTS_ROOT}/{filename}",
+            path=self.client.canonicalize_post_path(f"{POSTS_ROOT}/{filename}"),
             title=title,
             categories=categories,
             body="",
@@ -761,7 +761,7 @@ class MozuMobileApp:
         if self.current_article is None:
             slug = slugify(title) or f"post-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
             self.current_article = ArticleDraft(
-                path=f"{POSTS_ROOT}/{slug}.md",
+                path=self.client.canonicalize_post_path(f"{POSTS_ROOT}/{slug}.md"),
                 title=title,
                 categories=categories,
                 body=body,
@@ -771,13 +771,18 @@ class MozuMobileApp:
 
         self._set_loading(True)
         try:
+            source_path = self.current_article.path
+            canonical_path = self.client.canonicalize_post_path(source_path)
+
             saved = await self.client.save_article(
-                path=self.current_article.path,
+                path=canonical_path,
                 title=title,
                 categories=categories,
                 body=body,
                 sha=self.current_article.sha,
                 date_value=self.current_article.date,
+                source_path=source_path if source_path != canonical_path else None,
+                source_sha=self.current_article.sha if source_path != canonical_path else None,
             )
             self.current_article = saved
             self._show_snackbar("发布成功")

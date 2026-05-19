@@ -28,11 +28,11 @@ python main.py
 ## 功能说明
 
 - 底部导航栏固定在屏幕下方，适合手机单手切换页面。
-- 文章列表页从 `content/posts` 读取 `.md` 文件列表。
+- 文章列表页优先从 `content/posts` 读取 `.md` 文件，同时兼容旧目录 `content/post`。
 - 点击文章后通过 GitHub Contents API 拉取并自动解码 Base64 内容，然后自动切到编辑器页。
 - 编辑器页只保存 Markdown 正文，发布时自动拼接 YAML Front Matter。
 - 新建文章会先弹出对话框输入标题和分类。
-- 发布时使用 `PUT /contents/...` 完成在线同步；更新已有文章会自动带上 `sha`。
+- 发布时使用 `PUT /contents/...` 完成在线同步；更新已有文章会自动带上 `sha`。若编辑的是旧路径 `content/post`，发布时会自动迁移到 `content/posts`。
 - 网络请求期间显示加载进度，并用 SnackBar 提示错误。
 
 ## 文件结构

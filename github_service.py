@@ -17,6 +17,7 @@ from settings_store import AppSettings
 
 API_BASE = "https://api.github.com"
 POSTS_ROOT = "content/posts"
+LEGACY_POSTS_ROOT = "content/post"
 
 
 @dataclass
@@ -138,16 +139,47 @@ class GitHubContentClient:
         return await asyncio.to_thread(self._request, method, endpoint, **kwargs)
 
     async def list_articles(self) -> list[ArticleEntry]:
-        response = await self.request_async("GET", f"contents/{POSTS_ROOT}")
-        payload = response.json()
-        if isinstance(payload, dict):
-            payload = [payload]
+        # Prefer content/posts, but keep compatibility with legacy content/post.
+        entries_by_name: dict[str, ArticleEntry] = {}
 
-        return [
-            ArticleEntry(name=item["name"], path=item["path"], sha=item.get("sha", ""))
-            for item in payload
-            if isinstance(item, dict) and item.get("type") == "file" and item.get("name", "").endswith(".md")
-        ]
+        for root in (POSTS_ROOT, LEGACY_POSTS_ROOT):
+            try:
+                response = await self.request_async("GET", f"contents/{root}")
+            except requests.HTTPError as exc:
+                response = exc.response
+                if response is not None and response.status_code == 404:
+                    continue
+                raise
+
+            payload = response.json()
+            if isinstance(payload, dict):
+                payload = [payload]
+
+            for item in payload:
+                if not isinstance(item, dict):
+                    continue
+                if item.get("type") != "file" or not str(item.get("name", "")).endswith(".md"):
+                    continue
+
+                name = str(item.get("name", ""))
+                path = str(item.get("path", ""))
+                sha = str(item.get("sha", ""))
+                if not name or not path:
+                    continue
+
+                # posts has higher priority than legacy post for same filename.
+                if name in entries_by_name and root == LEGACY_POSTS_ROOT:
+                    continue
+                entries_by_name[name] = ArticleEntry(name=name, path=path, sha=sha)
+
+        return sorted(entries_by_name.values(), key=lambda entry: entry.name.lower())
+
+    @staticmethod
+    def canonicalize_post_path(path: str) -> str:
+        normalized = (path or "").strip().replace("\\", "/")
+        if normalized.startswith(f"{LEGACY_POSTS_ROOT}/"):
+            return normalized.replace(f"{LEGACY_POSTS_ROOT}/", f"{POSTS_ROOT}/", 1)
+        return normalized
 
     async def get_article(self, path: str) -> ArticleDraft:
         response = await self.request_async("GET", f"contents/{quote(path, safe='/')}")
@@ -181,6 +213,8 @@ class GitHubContentClient:
         body: str,
         sha: Optional[str] = None,
         date_value: Optional[str] = None,
+        source_path: Optional[str] = None,
+        source_sha: Optional[str] = None,
     ) -> ArticleDraft:
         """Create or update a Markdown article through the GitHub Contents API."""
 
@@ -204,6 +238,19 @@ class GitHubContentClient:
         )
         payload = response.json()
         content_info = payload.get("content", {}) if isinstance(payload, dict) else {}
+
+        # If this save is a legacy-path migration, delete the old legacy file.
+        if source_path and source_sha and source_path != path:
+            delete_body = {
+                "message": f"Move {Path(source_path).name} to posts",
+                "sha": source_sha,
+                "branch": self.settings.github_branch or "main",
+            }
+            await self.request_async(
+                "DELETE",
+                f"contents/{quote(source_path, safe='/')}",
+                json=delete_body,
+            )
 
         return ArticleDraft(
             path=str(content_info.get("path", path)),
