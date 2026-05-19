@@ -1,0 +1,81 @@
+# MoZu Android
+
+<p align="center">
+  <img src="assets/icons/mozu.svg" alt="MoZu Icon" width="120">
+</p>
+
+A Flet-based mobile blog management app for Hugo workflows. It lets you read, edit, and publish posts directly on mobile devices through the GitHub API.
+
+## Highlights
+
+- Three-tab bottom navigation: post list, online editor, and sync settings.
+- Direct GitHub Contents API integration, no local Git repository required.
+- Compatible with both `content/posts` and legacy `content/post`, and normalizes publishing to `content/posts`.
+- Mobile-friendly interactions with loading states, error feedback, and streamlined editor flow.
+- App icon is aligned with the desktop `pyqt_blog_tool` and uses the same visual source (`mozu.svg`).
+
+## Environment Variables
+
+Set these variables before launch:
+
+- `GITHUB_TOKEN`
+- `REPO_OWNER`
+- `REPO_NAME`
+- `GITHUB_BRANCH` (optional, default is `main`)
+
+You can also fill these values in the in-app Sync Settings page. They are persisted to `app_settings.json`.
+
+## Local Run
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
+Start the app:
+
+```bash
+python main.py
+```
+
+## Android Icon Notes
+
+This project includes the desktop icon source at:
+
+- `assets/icons/mozu.svg`
+
+For Flet packaging compatibility, use the icon generation script:
+
+```bash
+pip install pillow
+python tools/generate_app_icons.py
+```
+
+The script generates:
+
+- `assets/icon.png`
+- `assets/icon_android.png`
+
+GitHub Actions runs this script before building APKs, so cloud builds always use the unified icon style.
+
+## GitHub Actions Packaging
+
+Workflow file: `.github/workflows/build-apk.yml`
+
+- Triggered only by version tags matching `v*`.
+- Uses `flet build apk --split-per-abi` for ABI-split APK outputs.
+- Uploads `build/apk/*-release.apk` as artifacts.
+- Build metadata is unified in Flet parameters:
+  - App project name: `mozuapp`
+  - App product name: `MoZu App`
+  - Bundle ID: `com.mozu.app`
+  - Build version: derived from tag (for example, `v1.2.3` -> `1.2.3`)
+  - Build number: `GITHUB_RUN_NUMBER`
+
+## Core Files
+
+- `main.py`: Flet UI routes, bottom navigation, and interaction logic.
+- `github_service.py`: GitHub API access, post loading, and publishing logic.
+- `settings_store.py`: configuration load/save and environment mapping.
+- `tools/generate_app_icons.py`: icon generator based on the shared MoZu shape rules.

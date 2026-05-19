@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 外框：印章/方块 -->
+  <rect x="32" y="32" width="192" height="192" rx="32" fill="white" stroke="#222" stroke-width="12"/>
+  <!-- 毛笔笔画：代表“墨” -->
+  <path d="M80 176 Q128 80 176 176" stroke="#222" stroke-width="14" stroke-linecap="round" fill="none"/>
+  <!-- 笔尖点 -->
+  <circle cx="128" cy="80" r="10" fill="#222"/>
+  <!-- 建筑基座：代表“筑” -->
+  <rect x="88" y="192" width="80" height="16" rx="4" fill="#222"/>
+</svg>

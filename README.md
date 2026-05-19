@@ -1,42 +1,75 @@
 # 墨筑 MoZu Android
 
-基于 Flet 的移动端博客管理界面，使用底部导航栏在“文章列表 / 在线编辑器 / 同步设置”之间切换，并直接通过 GitHub REST API 读取、编辑和发布 Hugo 文章，不再依赖本地 Git 仓库。
+<p align="center">
+	<img src="assets/icons/mozu.svg" alt="MoZu Icon" width="120">
+</p>
 
-## 运行前配置
+基于 Flet 的移动端博客管理应用，面向 Hugo 内容维护场景，支持在手机端完成文章读取、编辑与发布，并通过 GitHub API 直接同步仓库内容。
 
-在环境变量中设置：
+## 亮点
+
+- 三页式底部导航：文章列表、在线编辑器、同步设置。
+- 在线直连 GitHub Contents API，无需本地 Git 仓库即可更新文章。
+- 兼容 `content/posts` 与历史 `content/post` 目录，发布时自动归一化到 `content/posts`。
+- 移动端交互优化：加载态、错误提示、编辑流程切换更直接。
+- 应用图标与桌面版 `pyqt_blog_tool` 使用同一视觉源图（`mozu.svg`）。
+
+## 环境变量配置
+
+启动前可通过环境变量注入仓库信息：
 
 - `GITHUB_TOKEN`
 - `REPO_OWNER`
 - `REPO_NAME`
-- 可选：`GITHUB_BRANCH`，默认 `main`
+- `GITHUB_BRANCH`（可选，默认 `main`）
 
-这些值也可以在应用内的“同步设置”页面中保存，保存后会写入同目录下的 `app_settings.json`。
+也可在应用内“同步设置”页填写并保存，数据会写入 `app_settings.json`。
 
-## 安装依赖
+## 本地运行
+
+安装依赖：
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## 启动
+启动应用：
 
 ```bash
 python main.py
 ```
 
-## 功能说明
+## Android 图标说明
 
-- 底部导航栏固定在屏幕下方，适合手机单手切换页面。
-- 文章列表页优先从 `content/posts` 读取 `.md` 文件，同时兼容旧目录 `content/post`。
-- 点击文章后通过 GitHub Contents API 拉取并自动解码 Base64 内容，然后自动切到编辑器页。
-- 编辑器页只保存 Markdown 正文，发布时自动拼接 YAML Front Matter。
-- 新建文章会先弹出对话框输入标题和分类。
-- 发布时使用 `PUT /contents/...` 完成在线同步；更新已有文章会自动带上 `sha`。若编辑的是旧路径 `content/post`，发布时会自动迁移到 `content/posts`。
-- 网络请求期间显示加载进度，并用 SnackBar 提示错误。
+本项目将桌面版图标源文件同步到：
 
-## 文件结构
+- `assets/icons/mozu.svg`
 
-- `main.py`：Flet 路由、底部导航、三页视图和交互逻辑。
-- `github_service.py`：GitHub REST API 访问、Front Matter 解析与发布。
-- `settings_store.py`：应用设置读取、保存与环境变量同步。
+为适配 Flet 打包，提供图标生成脚本：
+
+```bash
+pip install pillow
+python tools/generate_app_icons.py
+```
+
+脚本会生成：
+
+- `assets/icon.png`
+- `assets/icon_android.png`
+
+GitHub Actions 在构建 APK 前会自动执行该脚本，因此云端打包可直接使用统一图标。
+
+## GitHub Actions 打包
+
+工作流文件：`.github/workflows/build-apk.yml`
+
+- 仅在 `v*` 版本标签推送时触发。
+- 使用 `flet build apk --split-per-abi` 按架构分包。
+- 上传 `build/apk/*-release.apk` 作为构建产物。
+
+## 核心文件
+
+- `main.py`：Flet UI 路由、底部导航和页面交互。
+- `github_service.py`：GitHub API 封装、文章读取与发布逻辑。
+- `settings_store.py`：配置读取、保存与环境变量回填。
+- `tools/generate_app_icons.py`：根据统一图形规则生成打包图标。

@@ -8,6 +8,10 @@ on:
 jobs:
   build-apk:
     runs-on: ubuntu-latest
+    env:
+      FLET_APP_PROJECT: mozuapp
+      FLET_APP_PRODUCT: "MoZu App"
+      FLET_APP_BUNDLE_ID: com.mozu.app
 
     steps:
       - name: Checkout repository
@@ -32,13 +36,32 @@ jobs:
       - name: Install Flet CLI
         run: |
           python -m pip install --upgrade pip
-          pip install flet
+          pip install flet pillow
+
+      - name: Generate app icons
+        run: |
+          python tools/generate_app_icons.py
+
+      - name: Resolve build version from tag
+        shell: bash
+        run: |
+          RAW_TAG="${GITHUB_REF_NAME}"
+          BUILD_VERSION="${RAW_TAG#v}"
+          echo "BUILD_VERSION=${BUILD_VERSION}" >> "$GITHUB_ENV"
+          echo "Using tag ${RAW_TAG} -> build version ${BUILD_VERSION}"
 
       - name: Build APK with Flet
         env:
           FLET_CLI_NO_RICH_OUTPUT: "1"
         run: |
-          flet build apk --split-per-abi
+          flet build apk \
+            --split-per-abi \
+            --yes \
+            --project "${FLET_APP_PROJECT}" \
+            --product "${FLET_APP_PRODUCT}" \
+            --bundle-id "${FLET_APP_BUNDLE_ID}" \
+            --build-version "${BUILD_VERSION}" \
+            --build-number "${GITHUB_RUN_NUMBER}"
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
