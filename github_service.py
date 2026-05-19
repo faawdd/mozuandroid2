@@ -52,11 +52,23 @@ def split_categories(raw_value: str) -> list[str]:
 def build_front_matter(title: str, categories: list[str], date_value: str) -> str:
     """Serialize the minimal YAML Front Matter expected by Hugo."""
 
-    lines = ["---", f'title: {json.dumps(title, ensure_ascii=False)}', f"date: {date_value}", "draft: false"]
-    if categories:
-        lines.append("categories:")
-        for category in categories:
-            lines.append(f'  - {json.dumps(category, ensure_ascii=False)}')
+    normalized_categories = [item.strip() for item in categories if item.strip()]
+    categories_yaml = json.dumps(normalized_categories, ensure_ascii=False)
+    lines = [
+        "---",
+        f'title: {json.dumps(title, ensure_ascii=False)}',
+        "description: ",
+        f"date: {date_value}",
+        "image: ",
+        "math: ",
+        "license: ",
+        "comments: true",
+        "tags: []",
+        f"categories: {categories_yaml}",
+        "draft: false",
+        "build:",
+        '    list: always    # Change to "never" to hide the page from the list',
+    ]
     lines.append("---")
     return "\n".join(lines)
 
@@ -85,13 +97,36 @@ def parse_front_matter(raw_text: str) -> tuple[dict[str, Any], str]:
 
         if line.startswith("categories:"):
             categories: list[str] = []
-            index += 1
-            while index < len(lines):
-                category_line = lines[index].strip()
-                if not category_line.startswith("-"):
-                    break
-                categories.append(category_line.lstrip("-").strip().strip('"').strip("'"))
+            _, _, category_value = line.partition(":")
+            category_value = category_value.strip()
+
+            if category_value:
+                if category_value.startswith("[") and category_value.endswith("]"):
+                    try:
+                        parsed = json.loads(category_value)
+                        if isinstance(parsed, list):
+                            categories = [str(item).strip() for item in parsed if str(item).strip()]
+                    except Exception:
+                        raw_items = category_value[1:-1]
+                        categories = [
+                            item.strip().strip('"').strip("'")
+                            for item in raw_items.split(",")
+                            if item.strip().strip('"').strip("'")
+                        ]
+                else:
+                    scalar = category_value.strip().strip('"').strip("'")
+                    if scalar:
+                        categories = [scalar]
                 index += 1
+            else:
+                index += 1
+                while index < len(lines):
+                    category_line = lines[index].strip()
+                    if not category_line.startswith("-"):
+                        break
+                    categories.append(category_line.lstrip("-").strip().strip('"').strip("'"))
+                    index += 1
+
             metadata["categories"] = categories
             continue
 
