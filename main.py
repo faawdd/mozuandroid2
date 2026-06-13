@@ -155,9 +155,28 @@ class MozuMobileApp:
         self.page.theme = ft.Theme(color_scheme_seed=ft.Colors.BLUE_700)
         self.page.padding = 0
         self.page.scroll = ft.ScrollMode.AUTO
+        self._configure_soft_input_resize_mode()
         self.page.on_route_change = self._on_route_change
         self.page.on_view_pop = self._on_view_pop
         self.page.go(ROUTE_ARTICLES)
+
+    def _configure_soft_input_resize_mode(self) -> None:
+        """Prefer resize mode so Android IME does not cover input controls."""
+        soft_input_mode = getattr(ft, "WindowSoftInputMode", None)
+        if soft_input_mode is None:
+            return
+
+        resize_mode = getattr(soft_input_mode, "RESIZE", None)
+        if resize_mode is None:
+            return
+
+        # Newer Flet exposes mode on page directly; older versions expose it on page.window.
+        if hasattr(self.page, "window_soft_input_mode"):
+            self.page.window_soft_input_mode = resize_mode
+
+        window = getattr(self.page, "window", None)
+        if window is not None and hasattr(window, "soft_input_mode"):
+            window.soft_input_mode = resize_mode
 
     def _sync_settings_fields(self) -> None:
         self.token_field.value = self.settings.github_token
@@ -389,10 +408,11 @@ class MozuMobileApp:
         body_padding = 8 if compact else 14
         card_padding = 12 if compact else 16
         line_gutter_width = 36 if compact else 44
+        keyboard_inset_bottom = self._keyboard_inset_bottom()
 
         return ft.Container(
             expand=True,
-            padding=body_padding,
+            padding=ft.Padding(left=body_padding, top=body_padding, right=body_padding, bottom=body_padding + keyboard_inset_bottom),
             content=ft.Column(
                 expand=True,
                 spacing=10 if compact else 14,
@@ -464,6 +484,21 @@ class MozuMobileApp:
                 ],
             ),
         )
+
+    def _keyboard_inset_bottom(self) -> int:
+        media = getattr(self.page, "media", None)
+        if media is None:
+            return 0
+
+        view_insets = getattr(media, "view_insets", None)
+        if view_insets is None:
+            return 0
+
+        raw_bottom = getattr(view_insets, "bottom", 0)
+        try:
+            return max(0, int(raw_bottom or 0))
+        except (TypeError, ValueError):
+            return 0
 
     def _toolbar_icon_button(self, *, icon, tooltip: str, on_click) -> ft.Container:
         return ft.Container(

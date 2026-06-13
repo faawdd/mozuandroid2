@@ -71,53 +71,76 @@ jobs:
         run: |
           find build -type f -name "*.apk" | sort || true
 
+      - name: Collect split APKs by ABI
+        shell: bash
+        run: |
+          mkdir -p dist/apk
+          mapfile -t ALL_APKS < <(find build -type f -name "*.apk" | sort -u)
+          if [ "${#ALL_APKS[@]}" -eq 0 ]; then
+            echo "No APK files found."
+            exit 1
+          fi
+
+          pick_first() {
+            local pattern="$1"
+            local apk
+            for apk in "${ALL_APKS[@]}"; do
+              if [[ "$apk" =~ $pattern ]]; then
+                echo "$apk"
+                return 0
+              fi
+            done
+            return 1
+          }
+
+          copy_abi_apk() {
+            local abi="$1"
+            local src
+            if src="$(pick_first "$abi")"; then
+              cp "$src" "dist/apk/mozuapp-v${BUILD_VERSION}-${abi}.apk"
+              echo "Collected ${abi}: ${src}"
+            else
+              echo "Skip ${abi}: not found"
+            fi
+          }
+
+          copy_abi_apk "armeabi-v7a"
+          copy_abi_apk "arm64-v8a"
+          copy_abi_apk "x86_64"
+          copy_abi_apk "x86"
+
+          if ! ls dist/apk/*.apk >/dev/null 2>&1; then
+            echo "No split APKs were collected into dist/apk."
+            exit 1
+          fi
+
+          echo "Collected APKs:"
+          ls -lh dist/apk/*.apk
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mozo-flet-apk
-          path: |
-            build/apk/*.apk
-            build/apk/**/*.apk
-            build/flutter/build/app/outputs/flutter-apk/*.apk
+          name: mozu-flet-apk-split
+          path: dist/apk/*.apk
           if-no-files-found: error
 
-      - name: Create GitHub Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create Release and upload ABI APKs
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          release_name: "MoZu App v${{ env.BUILD_VERSION }}"
+          name: "MoZu App v${{ env.BUILD_VERSION }}"
           body: |
-            自动发布：CI 构建产物。
-            
+            自动发布：按架构拆分的 APK 构建产物。
+
             - 版本号：${{ env.BUILD_VERSION }}
             - 构建号：${{ github.run_number }}
             - 包名：${{ env.FLET_APP_BUNDLE_ID }}
-            
-            > 本 Release 由 GitHub Actions 自动生成，包含所有 ABI 的 APK 包。
+
+            已上传独立安装包（按 ABI）：
+            - `mozuapp-v${{ env.BUILD_VERSION }}-armeabi-v7a.apk`
+            - `mozuapp-v${{ env.BUILD_VERSION }}-arm64-v8a.apk`
+            - `mozuapp-v${{ env.BUILD_VERSION }}-x86_64.apk`
+            - `mozuapp-v${{ env.BUILD_VERSION }}-x86.apk`
+          files: dist/apk/*.apk
           draft: false
           prerelease: false
-
-      - name: Package APKs for Release
-        shell: bash
-        run: |
-          mkdir -p dist
-          find build -type f -name "*.apk" | sort -u > dist/apk_files.txt
-          if [ ! -s dist/apk_files.txt ]; then
-            echo "No APK files found to package."
-            exit 1
-          fi
-          rm -f dist/mozuapp-apks.zip
-          zip dist/mozuapp-apks.zip -@ < dist/apk_files.txt
-
-      - name: Upload APKs to Release
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/mozuapp-apks.zip
-          asset_name: mozuapp-apks.zip
-          asset_content_type: application/zip
