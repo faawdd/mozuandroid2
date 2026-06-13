@@ -30,19 +30,30 @@ class MozuMobileApp:
         self.current_article: Optional[ArticleDraft] = None
         self.loading = False
         self._current_loading_overlay: Optional[ft.Container] = None
+        self._editor_body_container: Optional[ft.Container] = None
 
         # Article editor controls are kept on the controller so route switches can
         # repopulate them without recreating the underlying state model.
         self.article_list = ft.ListView(expand=True, spacing=8, padding=8, auto_scroll=False)
-        self.title_field = ft.TextField(label="标题", dense=True, border_radius=14, content_padding=12)
+        self.title_field = ft.TextField(
+            key="editor-title-field",
+            label="标题",
+            dense=True,
+            border_radius=14,
+            content_padding=12,
+            on_focus=self._on_editor_input_focus,
+        )
         self.category_field = ft.TextField(
+            key="editor-category-field",
             label="分类",
             hint_text="多个分类用逗号分隔",
             dense=True,
             border_radius=14,
             content_padding=12,
+            on_focus=self._on_editor_input_focus,
         )
         self.editor_field = ft.TextField(
+            key="editor-body-field",
             multiline=True,
             expand=True,
             min_lines=18,
@@ -51,6 +62,7 @@ class MozuMobileApp:
             text_size=14,
             on_change=self._on_editor_change,
             on_selection_change=self._on_editor_selection_change,
+            on_focus=self._on_editor_input_focus,
             content_padding=16,
             hint_text="在这里编辑 Markdown 正文，发布时会自动拼接 YAML Front Matter。",
         )
@@ -156,6 +168,7 @@ class MozuMobileApp:
         self.page.padding = 0
         self.page.scroll = ft.ScrollMode.AUTO
         self._configure_soft_input_resize_mode()
+        self.page.on_resized = self._on_page_resized
         self.page.on_route_change = self._on_route_change
         self.page.on_view_pop = self._on_view_pop
         self.page.go(ROUTE_ARTICLES)
@@ -410,7 +423,7 @@ class MozuMobileApp:
         line_gutter_width = 36 if compact else 44
         keyboard_inset_bottom = self._keyboard_inset_bottom()
 
-        return ft.Container(
+        self._editor_body_container = ft.Container(
             expand=True,
             padding=ft.Padding(left=body_padding, top=body_padding, right=body_padding, bottom=body_padding + keyboard_inset_bottom),
             content=ft.Column(
@@ -484,6 +497,39 @@ class MozuMobileApp:
                 ],
             ),
         )
+        return self._editor_body_container
+
+    def _on_page_resized(self, _event: ft.ControlEvent) -> None:
+        self._update_editor_keyboard_padding(update_page=True)
+
+    def _on_editor_input_focus(self, event: ft.ControlEvent) -> None:
+        control_key = getattr(event.control, "key", None)
+        self.page.run_task(self._deferred_scroll_to_control, control_key)
+
+    async def _deferred_scroll_to_control(self, control_key: Optional[str]) -> None:
+        # Wait a bit for IME animation, then ensure focused field is visible.
+        await asyncio.sleep(0.2)
+        self._update_editor_keyboard_padding(update_page=False)
+        if control_key:
+            self.page.scroll_to(key=control_key, duration=260)
+        self.page.update()
+
+    def _editor_base_padding(self) -> int:
+        return 8 if self._is_compact_layout() else 14
+
+    def _update_editor_keyboard_padding(self, *, update_page: bool) -> None:
+        if self.page.route != ROUTE_EDITOR or self._editor_body_container is None:
+            return
+
+        base_padding = self._editor_base_padding()
+        self._editor_body_container.padding = ft.Padding(
+            left=base_padding,
+            top=base_padding,
+            right=base_padding,
+            bottom=base_padding + self._keyboard_inset_bottom(),
+        )
+        if update_page:
+            self.page.update()
 
     def _keyboard_inset_bottom(self) -> int:
         media = getattr(self.page, "media", None)
