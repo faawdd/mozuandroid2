@@ -75,7 +75,17 @@ GitHub Actions 在构建 APK 前会自动执行该脚本，因此云端打包可
 
 - 仅在 `v*` 版本标签推送时触发。
 - 使用 `flet build apk --split-per-abi` 按架构分包。
-- 上传 `build/apk/*-release.apk` 作为构建产物。
+- 使用固定 keystore 签名，保证每次发布可覆盖安装升级（签名一致）。
+- 上传按 ABI 拆分后的独立 APK 作为构建产物与 Release 资产。
+
+为保证签名稳定，需要在仓库 `Settings -> Secrets and variables -> Actions` 中配置：
+
+- `ANDROID_KEYSTORE_BASE64`：固定上传 keystore（`.jks`）的 Base64 文本。
+- `ANDROID_KEY_ALIAS`：keystore 中用于签名的 alias。
+- `ANDROID_KEYSTORE_PASSWORD`：keystore 密码。
+- `ANDROID_KEY_PASSWORD`：alias 对应 key 密码。
+
+> 只要以上 4 个值不变，且 `applicationId`（本项目为 `com.mozu.app`）保持不变，后续 APK 就可以直接覆盖安装。
 
 ## 核心文件
 

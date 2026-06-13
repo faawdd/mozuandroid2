@@ -75,13 +75,24 @@ Workflow file: `.github/workflows/build-apk.yml`
 
 - Triggered only by version tags matching `v*`.
 - Uses `flet build apk --split-per-abi` for ABI-split APK outputs.
-- Uploads `build/apk/*-release.apk` as artifacts.
+- Uses a fixed Android keystore for signing, so new APKs can be installed as upgrades.
+- Uploads per-ABI APKs as both workflow artifacts and Release assets.
 - Build metadata is unified in Flet parameters:
   - App project name: `mozuapp`
   - App product name: `MoZu App`
   - Bundle ID: `com.mozu.app`
   - Build version: derived from tag (for example, `v1.2.3` -> `1.2.3`)
   - Build number: `GITHUB_RUN_NUMBER`
+
+To keep APK signatures stable, configure these repository secrets in
+`Settings -> Secrets and variables -> Actions`:
+
+- `ANDROID_KEYSTORE_BASE64`: Base64-encoded fixed upload keystore (`.jks`).
+- `ANDROID_KEY_ALIAS`: signing key alias in that keystore.
+- `ANDROID_KEYSTORE_PASSWORD`: keystore password.
+- `ANDROID_KEY_PASSWORD`: key password for the alias.
+
+As long as these values stay unchanged and the application ID (`com.mozu.app`) stays the same, each new APK can be installed directly over the previous one.
 
 ## Core Files
 

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import os
+import platform
+import subprocess
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
@@ -16,7 +19,58 @@ from settings_store import AppSettings
 ROUTE_ARTICLES = "/articles"
 ROUTE_EDITOR = "/editor"
 ROUTE_SETTINGS = "/settings"
-ROUTE_BY_INDEX = [ROUTE_ARTICLES, ROUTE_EDITOR, ROUTE_SETTINGS]
+ROUTE_HOME = "/"
+ROUTE_BY_INDEX = [ROUTE_HOME, ROUTE_ARTICLES, ROUTE_EDITOR, ROUTE_SETTINGS]
+
+
+def _read_version_file() -> Optional[str]:
+    version_file = Path(__file__).with_name("build_version.txt")
+    if not version_file.exists():
+        return None
+    try:
+        value = version_file.read_text(encoding="utf-8").strip()
+    except OSError:
+        return None
+    if not value:
+        return None
+    return value.lstrip("v")
+
+
+def _read_git_tag_version() -> Optional[str]:
+    try:
+        result = subprocess.run(
+            ["git", "describe", "--tags", "--abbrev=0"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=1.5,
+        )
+    except (subprocess.SubprocessError, OSError):
+        return None
+
+    tag = (result.stdout or "").strip()
+    if not tag:
+        return None
+    return tag.lstrip("v")
+
+
+def resolve_app_version() -> str:
+    env_version = (os.getenv("MOZU_APP_VERSION") or "").strip()
+    if env_version:
+        return env_version.lstrip("v")
+
+    file_version = _read_version_file()
+    if file_version:
+        return file_version
+
+    tag_version = _read_git_tag_version()
+    if tag_version:
+        return tag_version
+
+    return "dev"
+
+
+APP_VERSION = resolve_app_version()
 
 
 class MozuMobileApp:
@@ -31,6 +85,8 @@ class MozuMobileApp:
         self.loading = False
         self._current_loading_overlay: Optional[ft.Container] = None
         self._editor_body_container: Optional[ft.Container] = None
+        self._editor_scroll_view: Optional[ft.ListView] = None
+        self._editor_card_container: Optional[ft.Container] = None
 
         # Article editor controls are kept on the controller so route switches can
         # repopulate them without recreating the underlying state model.
@@ -166,12 +222,12 @@ class MozuMobileApp:
         self.page.theme_mode = ft.ThemeMode.LIGHT
         self.page.theme = ft.Theme(color_scheme_seed=ft.Colors.BLUE_700)
         self.page.padding = 0
-        self.page.scroll = ft.ScrollMode.AUTO
+        self.page.scroll = ft.ScrollMode.HIDDEN
         self._configure_soft_input_resize_mode()
         self.page.on_resized = self._on_page_resized
         self.page.on_route_change = self._on_route_change
         self.page.on_view_pop = self._on_view_pop
-        self.page.go(ROUTE_ARTICLES)
+        self.page.go(ROUTE_HOME)
 
     def _configure_soft_input_resize_mode(self) -> None:
         """Prefer resize mode so Android IME does not cover input controls."""
@@ -264,6 +320,11 @@ class MozuMobileApp:
             selected_index=selected_index,
             destinations=[
                 ft.NavigationBarDestination(
+                    icon=ft.icons.Icons.HOME_OUTLINED,
+                    selected_icon=ft.icons.Icons.HOME,
+                    label="首页",
+                ),
+                ft.NavigationBarDestination(
                     icon=ft.icons.Icons.ARTICLE_ROUNDED,
                     selected_icon=ft.icons.Icons.LIST_ALT,
                     label="文章列表",
@@ -285,11 +346,13 @@ class MozuMobileApp:
         )
 
     def _selected_index_for_route(self, route: str) -> int:
+        if route == ROUTE_HOME:
+            return 0
         if route == ROUTE_EDITOR:
-            return 1
-        if route == ROUTE_SETTINGS:
             return 2
-        return 0
+        if route == ROUTE_SETTINGS:
+            return 3
+        return 1
 
     def _build_view_shell(self, title: str, body: ft.Control, route: str) -> ft.View:
         # Each route renders a fully independent mobile page with a fixed bottom nav.
@@ -323,6 +386,14 @@ class MozuMobileApp:
                     on_click=self._open_new_article_dialog,
                 ),
             ]
+        if route == ROUTE_HOME:
+            return [
+                ft.IconButton(
+                    icon=ft.icons.Icons.REFRESH,
+                    tooltip="刷新文章列表",
+                    on_click=self._wrap_async(self.refresh_articles),
+                ),
+            ]
         if route == ROUTE_EDITOR:
             return [
                 ft.IconButton(
@@ -344,7 +415,95 @@ class MozuMobileApp:
 
     def _on_view_pop(self, _event: ft.ViewPopEvent) -> None:
         # Mobile back gestures should land on the article list, which is the app's home tab.
-        self.page.go(ROUTE_ARTICLES)
+        self.page.go(ROUTE_HOME)
+
+    def _build_home_body(self) -> ft.Control:
+        flet_version = getattr(ft, "__version__", "unknown")
+        python_version = platform.python_version()
+        return ft.Container(
+            expand=True,
+            padding=14,
+            content=ft.Column(
+                expand=True,
+                spacing=14,
+                controls=[
+                    ft.Container(
+                        padding=18,
+                        border_radius=20,
+                        bgcolor=ft.Colors.WHITE,
+                        content=ft.Column(
+                            tight=True,
+                            spacing=6,
+                            controls=[
+                                ft.Text("墨筑 MoZu", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
+                                ft.Text("移动端 Hugo 博客管理工具", size=13, color=ft.Colors.BLUE_GREY_600),
+                            ],
+                        ),
+                    ),
+                    ft.Container(
+                        padding=16,
+                        border_radius=20,
+                        bgcolor=ft.Colors.WHITE,
+                        content=ft.Column(
+                            tight=True,
+                            spacing=10,
+                            controls=[
+                                ft.Row(
+                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    controls=[
+                                        ft.Text("应用版本", weight=ft.FontWeight.W_600),
+                                        ft.Text(APP_VERSION, color=ft.Colors.BLUE_700),
+                                    ],
+                                ),
+                                ft.Row(
+                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    controls=[
+                                        ft.Text("UI 框架", weight=ft.FontWeight.W_600),
+                                        ft.Text(f"Flet {flet_version}"),
+                                    ],
+                                ),
+                                ft.Row(
+                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    controls=[
+                                        ft.Text("Python", weight=ft.FontWeight.W_600),
+                                        ft.Text(python_version),
+                                    ],
+                                ),
+                                ft.Row(
+                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    controls=[
+                                        ft.Text("目标仓库", weight=ft.FontWeight.W_600),
+                                        ft.Text(f"{self.settings.repo_owner}/{self.settings.repo_name}", max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                                    ],
+                                ),
+                                ft.Row(
+                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                                    controls=[
+                                        ft.Text("默认分支", weight=ft.FontWeight.W_600),
+                                        ft.Text(self.settings.github_branch or "main"),
+                                    ],
+                                ),
+                            ],
+                        ),
+                    ),
+                    ft.Container(
+                        padding=16,
+                        border_radius=20,
+                        bgcolor=ft.Colors.WHITE,
+                        content=ft.Column(
+                            tight=True,
+                            spacing=8,
+                            controls=[
+                                ft.Text("功能概览", size=16, weight=ft.FontWeight.BOLD),
+                                ft.Text("1. 读取 GitHub 上 content/posts 文章并快速切换编辑。", size=13, color=ft.Colors.BLUE_GREY_600),
+                                ft.Text("2. 手机端直接修改 Markdown，自动拼接 Front Matter 后发布。", size=13, color=ft.Colors.BLUE_GREY_600),
+                                ft.Text("3. 同步设置可在应用内保存，便于多设备快速恢复。", size=13, color=ft.Colors.BLUE_GREY_600),
+                            ],
+                        ),
+                    ),
+                ],
+            ),
+        )
 
     def _build_article_card(self) -> ft.Container:
         return ft.Container(
@@ -422,80 +581,88 @@ class MozuMobileApp:
         card_padding = 12 if compact else 16
         line_gutter_width = 36 if compact else 44
         keyboard_inset_bottom = self._keyboard_inset_bottom()
+        editor_card_height = self._editor_card_height(keyboard_inset_bottom)
 
-        self._editor_body_container = ft.Container(
-            expand=True,
-            padding=ft.Padding(left=body_padding, top=body_padding, right=body_padding, bottom=body_padding + keyboard_inset_bottom),
+        self._editor_card_container = ft.Container(
+            height=editor_card_height,
+            padding=card_padding,
+            border_radius=20,
+            bgcolor=ft.Colors.WHITE,
             content=ft.Column(
                 expand=True,
-                spacing=10 if compact else 14,
+                spacing=12,
                 controls=[
-                    ft.Container(
-                        padding=section_padding,
-                        border_radius=20,
-                        bgcolor=ft.Colors.WHITE,
-                        content=ft.Column(
-                            tight=True,
-                            spacing=6,
-                            controls=[
-                                ft.Text("在线编辑器", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
-                                ft.Text(
-                                    "标题、分类和正文会在发布时自动拼接为 YAML Front Matter + Markdown。",
-                                    size=12,
-                                    color=ft.Colors.BLUE_GREY_500,
-                                ),
-                                ft.Text(
-                                    f"当前文件：{self.current_article.path if self.current_article else '未选择'}",
-                                    size=12,
-                                    color=ft.Colors.BLUE_GREY_600,
-                                ),
-                            ],
-                        ),
+                    ft.ResponsiveRow(
+                        spacing=12,
+                        run_spacing=12,
+                        controls=[
+                            ft.Container(col={"sm": 12, "md": 6}, content=self.title_field),
+                            ft.Container(col={"sm": 12, "md": 6}, content=self.category_field),
+                        ],
                     ),
+                    self.editor_toolbar,
                     ft.Container(
                         expand=True,
-                        padding=card_padding,
-                        border_radius=20,
-                        bgcolor=ft.Colors.WHITE,
-                        content=ft.Column(
+                        border_radius=16,
+                        border=self._editor_outline_border(),
+                        content=ft.Row(
                             expand=True,
-                            spacing=12,
+                            spacing=0,
                             controls=[
-                                ft.ResponsiveRow(
-                                    spacing=12,
-                                    run_spacing=12,
-                                    controls=[
-                                        ft.Container(col={"sm": 12, "md": 6}, content=self.title_field),
-                                        ft.Container(col={"sm": 12, "md": 6}, content=self.category_field),
-                                    ],
-                                ),
-                                self.editor_toolbar,
                                 ft.Container(
-                                    expand=True,
-                                    border_radius=16,
-                                    border=self._editor_outline_border(),
-                                    content=ft.Row(
-                                        expand=True,
-                                        spacing=0,
-                                        controls=[
-                                            ft.Container(
-                                                width=line_gutter_width,
-                                                expand=False,
-                                                padding=ft.Padding(top=14, right=4),
-                                                bgcolor=ft.Colors.BLUE_GREY_50,
-                                                alignment=ft.Alignment.TOP_RIGHT,
-                                                content=self.line_number_text,
-                                            ),
-                                            ft.VerticalDivider(width=1, color=ft.Colors.BLUE_GREY_100),
-                                            ft.Container(expand=True, content=self.editor_field),
-                                        ],
-                                    ),
+                                    width=line_gutter_width,
+                                    expand=False,
+                                    padding=ft.Padding(top=14, right=4),
+                                    bgcolor=ft.Colors.BLUE_GREY_50,
+                                    alignment=ft.Alignment.TOP_RIGHT,
+                                    content=self.line_number_text,
                                 ),
+                                ft.VerticalDivider(width=1, color=ft.Colors.BLUE_GREY_100),
+                                ft.Container(expand=True, content=self.editor_field),
                             ],
                         ),
                     ),
                 ],
             ),
+        )
+
+        self._editor_scroll_view = ft.ListView(
+            expand=True,
+            spacing=10 if compact else 14,
+            padding=0,
+            auto_scroll=False,
+            controls=[
+                ft.Container(
+                    key="editor-header-card",
+                    padding=section_padding,
+                    border_radius=20,
+                    bgcolor=ft.Colors.WHITE,
+                    content=ft.Column(
+                        tight=True,
+                        spacing=6,
+                        controls=[
+                            ft.Text("在线编辑器", size=18, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
+                            ft.Text(
+                                "标题、分类和正文会在发布时自动拼接为 YAML Front Matter + Markdown。",
+                                size=12,
+                                color=ft.Colors.BLUE_GREY_500,
+                            ),
+                            ft.Text(
+                                f"当前文件：{self.current_article.path if self.current_article else '未选择'}",
+                                size=12,
+                                color=ft.Colors.BLUE_GREY_600,
+                            ),
+                        ],
+                    ),
+                ),
+                self._editor_card_container,
+            ],
+        )
+
+        self._editor_body_container = ft.Container(
+            expand=True,
+            padding=ft.Padding(left=body_padding, top=body_padding, right=body_padding, bottom=body_padding + keyboard_inset_bottom),
+            content=self._editor_scroll_view,
         )
         return self._editor_body_container
 
@@ -510,8 +677,15 @@ class MozuMobileApp:
         # Wait a bit for IME animation, then ensure focused field is visible.
         await asyncio.sleep(0.2)
         self._update_editor_keyboard_padding(update_page=False)
-        if control_key:
+        if self._editor_scroll_view is None:
+            self.page.update()
+            return
+
+        if control_key in ("editor-title-field", "editor-category-field"):
             self.page.scroll_to(key=control_key, duration=260)
+            self._editor_scroll_view.scroll_to(offset=0, duration=200)
+        elif control_key == "editor-body-field":
+            self._scroll_editor_to_cursor_line(duration=220)
         self.page.update()
 
     def _editor_base_padding(self) -> int:
@@ -522,14 +696,37 @@ class MozuMobileApp:
             return
 
         base_padding = self._editor_base_padding()
+        keyboard_inset_bottom = self._keyboard_inset_bottom()
         self._editor_body_container.padding = ft.Padding(
             left=base_padding,
             top=base_padding,
             right=base_padding,
-            bottom=base_padding + self._keyboard_inset_bottom(),
+            bottom=base_padding + keyboard_inset_bottom,
         )
+        if self._editor_card_container is not None:
+            self._editor_card_container.height = self._editor_card_height(keyboard_inset_bottom)
         if update_page:
             self.page.update()
+
+    def _editor_card_height(self, keyboard_inset_bottom: int) -> int:
+        page_height = int(self.page.height or 760)
+        reserve_height = 250 + max(0, int(keyboard_inset_bottom * 0.35))
+        return max(320, page_height - reserve_height)
+
+    def _cursor_line_index(self) -> int:
+        value = self.editor_field.value or ""
+        start, _end = self._get_selection_range()
+        return max(0, value.count("\n", 0, start))
+
+    def _scroll_editor_to_cursor_line(self, duration: int = 0) -> None:
+        if self._editor_scroll_view is None or self.page.route != ROUTE_EDITOR:
+            return
+
+        line_index = self._cursor_line_index()
+        line_height = 22
+        base_offset = 220
+        target_offset = max(0, base_offset + (line_index * line_height) - 120)
+        self._editor_scroll_view.scroll_to(offset=target_offset, duration=duration)
 
     def _keyboard_inset_bottom(self) -> int:
         media = getattr(self.page, "media", None)
@@ -565,8 +762,7 @@ class MozuMobileApp:
         self._refresh_editor_metrics(update_page=True)
 
     def _on_editor_selection_change(self, _event: ft.ControlEvent) -> None:
-        # Selection change is intentionally lightweight and does not trigger repaint-heavy controls.
-        pass
+        self._scroll_editor_to_cursor_line(duration=120)
 
     def _refresh_editor_metrics(self, update_page: bool) -> None:
         value = self.editor_field.value or ""
@@ -700,7 +896,9 @@ class MozuMobileApp:
         )
 
     def _build_view(self) -> ft.View:
-        route = self.page.route or ROUTE_ARTICLES
+        route = self.page.route or ROUTE_HOME
+        if route == ROUTE_HOME:
+            return self._build_view_shell("首页", self._build_home_body(), ROUTE_HOME)
         if route == ROUTE_EDITOR:
             return self._build_view_shell("在线编辑器", self._build_editor_body(), ROUTE_EDITOR)
         if route == ROUTE_SETTINGS:
@@ -716,7 +914,7 @@ class MozuMobileApp:
         self._set_loading(True)
         try:
             self.entries = await self.client.list_articles()
-            if self._selected_index_for_route(self.page.route or ROUTE_ARTICLES) == 0:
+            if self._selected_index_for_route(self.page.route or ROUTE_ARTICLES) == 1:
                 self._refresh_article_list()
             self._show_snackbar(f"已同步 {len(self.entries)} 篇文章")
         except requests.HTTPError as exc:
