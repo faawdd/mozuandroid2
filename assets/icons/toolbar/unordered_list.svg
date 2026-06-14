@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 无序列表：圆点 + 横线 -->
+  <circle cx="5" cy="7" r="1.4" fill="#222"/>
+  <circle cx="5" cy="12" r="1.4" fill="#222"/>
+  <circle cx="5" cy="17" r="1.4" fill="#222"/>
+  <line x1="9" y1="7" x2="20" y2="7" stroke="#222" stroke-width="1.6" stroke-linecap="round"/>
+  <line x1="9" y1="12" x2="20" y2="12" stroke="#222" stroke-width="1.6" stroke-linecap="round"/>
+  <line x1="9" y1="17" x2="18" y2="17" stroke="#222" stroke-width="1.6" stroke-linecap="round"/>
+</svg>

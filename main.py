@@ -19,7 +19,7 @@ from settings_store import AppSettings
 ROUTE_ARTICLES = "/articles"
 ROUTE_EDITOR = "/editor"
 ROUTE_SETTINGS = "/settings"
-ROUTE_HOME = "/"
+ROUTE_HOME = "/home"
 ROUTE_BY_INDEX = [ROUTE_HOME, ROUTE_ARTICLES, ROUTE_EDITOR, ROUTE_SETTINGS]
 
 
@@ -87,6 +87,8 @@ class MozuMobileApp:
         self._editor_body_container: Optional[ft.Container] = None
         self._editor_scroll_view: Optional[ft.ListView] = None
         self._editor_card_container: Optional[ft.Container] = None
+        self._home_icon_container: Optional[ft.Container] = None
+        self._home_breathing_active = False
 
         # Article editor controls are kept on the controller so route switches can
         # repopulate them without recreating the underlying state model.
@@ -134,58 +136,58 @@ class MozuMobileApp:
             spacing=4,
             run_spacing=4,
             controls=[
-                self._toolbar_icon_button(
-                    icon=ft.icons.Icons.FORMAT_BOLD,
+                self._toolbar_svg_button(
+                    src="assets/icons/toolbar/bold.svg",
                     tooltip="加粗",
                     on_click=lambda _e: self._insert_wrapped("**", "**"),
                 ),
-                self._toolbar_icon_button(
-                    icon=ft.icons.Icons.FORMAT_ITALIC,
+                self._toolbar_svg_button(
+                    src="assets/icons/toolbar/italic.svg",
                     tooltip="斜体",
                     on_click=lambda _e: self._insert_wrapped("*", "*"),
                 ),
-                self._toolbar_icon_button(
-                    icon=ft.icons.Icons.CODE,
+                self._toolbar_svg_button(
+                    src="assets/icons/toolbar/code_inline.svg",
                     tooltip="行内代码",
                     on_click=lambda _e: self._insert_wrapped("`", "`"),
                 ),
-                self._toolbar_icon_button(
-                    icon=ft.icons.Icons.DATA_OBJECT,
+                self._toolbar_svg_button(
+                    src="assets/icons/toolbar/code_block.svg",
                     tooltip="Python 代码块",
                     on_click=lambda _e: self._insert_code_block("python"),
                 ),
-                self._toolbar_icon_button(
-                    icon=ft.icons.Icons.TABLE_CHART,
+                self._toolbar_svg_button(
+                    src="assets/icons/toolbar/table.svg",
                     tooltip="GFM 表格",
                     on_click=lambda _e: self._insert_table_template(),
                 ),
-                self._toolbar_icon_button(
-                    icon=ft.icons.Icons.FORMAT_QUOTE,
+                self._toolbar_svg_button(
+                    src="assets/icons/toolbar/quote.svg",
                     tooltip="引用",
                     on_click=lambda _e: self._insert_prefix_line("> "),
                 ),
-                self._toolbar_icon_button(
-                    icon=ft.icons.Icons.FILTER_1,
+                self._toolbar_svg_button(
+                    src="assets/icons/toolbar/h1.svg",
                     tooltip="一级标题",
                     on_click=lambda _e: self._insert_prefix_line("# "),
                 ),
-                self._toolbar_icon_button(
-                    icon=ft.icons.Icons.FILTER_2,
+                self._toolbar_svg_button(
+                    src="assets/icons/toolbar/h2.svg",
                     tooltip="二级标题",
                     on_click=lambda _e: self._insert_prefix_line("## "),
                 ),
-                self._toolbar_icon_button(
-                    icon=ft.icons.Icons.FILTER_3,
+                self._toolbar_svg_button(
+                    src="assets/icons/toolbar/h3.svg",
                     tooltip="三级标题",
                     on_click=lambda _e: self._insert_prefix_line("### "),
                 ),
-                self._toolbar_icon_button(
-                    icon=ft.icons.Icons.FORMAT_LIST_BULLETED,
+                self._toolbar_svg_button(
+                    src="assets/icons/toolbar/unordered_list.svg",
                     tooltip="无序列表",
                     on_click=lambda _e: self._insert_prefix_line("- "),
                 ),
-                self._toolbar_icon_button(
-                    icon=ft.icons.Icons.CHECK_BOX,
+                self._toolbar_svg_button(
+                    src="assets/icons/toolbar/task_list.svg",
                     tooltip="任务列表",
                     on_click=lambda _e: self._insert_prefix_line("- [ ] "),
                 ),
@@ -417,87 +419,266 @@ class MozuMobileApp:
         # Mobile back gestures should land on the article list, which is the app's home tab.
         self.page.go(ROUTE_HOME)
 
+    def _home_timeflow_copy(self) -> dict[str, str]:
+        now = datetime.now()
+        minutes = now.hour * 60 + now.minute
+
+        if 300 <= minutes < 510:  # 05:00 - 08:30
+            return {
+                "slot": "清晨启墨",
+                "time_range": "05:00 - 08:30",
+                "welcome": "晨光落墨，万象开篇",
+                "quote": "海日生残夜，江春入旧年。",
+                "author": "王湾",
+                "mood": "破晓时分最适合开启新篇，夜尽日生的转换感与创作起笔的仪式感高度契合。",
+            }
+        if 510 <= minutes < 720:  # 08:30 - 12:00
+            return {
+                "slot": "上午淬文",
+                "time_range": "08:30 - 12:00",
+                "welcome": "趁光淬字，铸就锋芒",
+                "quote": "盛年不重来，一日难再晨。",
+                "author": "陶渊明",
+                "mood": "上午是思维最清明的时段，强调时间不可复得，适合专注打磨每一行字。",
+            }
+        if 720 <= minutes < 840:  # 12:00 - 14:00
+            return {
+                "slot": "午间留白",
+                "time_range": "12:00 - 14:00",
+                "welcome": "留白半刻，字自回甘",
+                "quote": "采菊东篱下，悠然见南山。",
+                "author": "陶渊明",
+                "mood": "中午宜短暂抽离与沉淀，让思绪回温，文字会更有层次。",
+            }
+        if 840 <= minutes < 1110:  # 14:00 - 18:30
+            return {
+                "slot": "午后铸句",
+                "time_range": "14:00 - 18:30",
+                "welcome": "静水深流，慢火铸文",
+                "quote": "纸上得来终觉浅，绝知此事要躬行。",
+                "author": "陆游",
+                "mood": "午后适合深加工与结构推敲，把灵感落实为可发布的完整表达。",
+            }
+        if 1110 <= minutes < 1380:  # 18:30 - 23:00
+            return {
+                "slot": "夜色成章",
+                "time_range": "18:30 - 23:00",
+                "welcome": "灯下成章，灵感正浓",
+                "quote": "文章千古事，得失寸心知。",
+                "author": "杜甫",
+                "mood": "夜晚情绪与思辨并行，适合进入高产状态，同时保持文本敬畏。",
+            }
+
+        # 23:00 - 05:00
+        return {
+            "slot": "子夜求索",
+            "time_range": "23:00 - 05:00",
+            "welcome": "孤灯砺思，星河为证",
+            "quote": "路漫漫其修远兮，吾将上下而求索。",
+            "author": "屈原",
+            "mood": "深夜是守夜写作者与自我对话的时段，最适合硬核思考与持续求索。",
+        }
+
+    async def _run_home_icon_breathing(self) -> None:
+        if self._home_breathing_active:
+            return
+        self._home_breathing_active = True
+        scale_up = True
+        try:
+            while self.page.route == ROUTE_HOME and self._home_icon_container is not None:
+                self._home_icon_container.scale = 1.04 if scale_up else 1.0
+                self.page.update()
+                scale_up = not scale_up
+                await asyncio.sleep(1.25)
+        finally:
+            self._home_breathing_active = False
+
+    def _build_home_icon_container(self) -> ft.Container:
+        self._home_icon_container = ft.Container(
+            width=54,
+            height=54,
+            border_radius=14,
+            bgcolor=ft.Colors.with_opacity(0.2, ft.Colors.WHITE),
+            padding=8,
+            scale=1.0,
+            animate_scale=ft.Animation(1100, "easeInOut"),
+            content=ft.Image(src="assets/icons/mozu.svg", fit="contain"),
+        )
+        return self._home_icon_container
+
+    def _sync_home_animated_state(self) -> None:
+        if self.page.route == ROUTE_HOME and self._home_icon_container is not None:
+            self.page.run_task(self._run_home_icon_breathing)
+            return
+        self._home_breathing_active = False
+
     def _build_home_body(self) -> ft.Control:
         flet_version = getattr(ft, "__version__", "unknown")
         python_version = platform.python_version()
+        repo_name = f"{self.settings.repo_owner}/{self.settings.repo_name}".strip("/") or "未配置"
+        timeflow = self._home_timeflow_copy()
+        primary = ft.Colors.BLUE_700
+        primary_soft = ft.Colors.BLUE_600
+
+        def info_row(label: str, value: str) -> ft.Row:
+            return ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                controls=[
+                    ft.Text(label, size=13, weight=ft.FontWeight.W_600, color=ft.Colors.BLUE_GREY_700),
+                    ft.Text(value, size=13, color=ft.Colors.BLUE_GREY_900, max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
+                ],
+            )
+
         return ft.Container(
             expand=True,
-            padding=14,
-            content=ft.Column(
+            padding=16,
+            content=ft.ListView(
                 expand=True,
-                spacing=14,
+                spacing=12,
+                auto_scroll=False,
                 controls=[
                     ft.Container(
-                        padding=18,
-                        border_radius=20,
-                        bgcolor=ft.Colors.WHITE,
+                        padding=20,
+                        border_radius=24,
+                        gradient=ft.LinearGradient(
+                            begin=ft.Alignment(-1, -1),
+                            end=ft.Alignment(1, 1),
+                            colors=[primary, primary_soft],
+                        ),
+                        shadow=ft.BoxShadow(
+                            blur_radius=22,
+                            spread_radius=0,
+                            color=ft.Colors.with_opacity(0.25, primary),
+                            offset=ft.Offset(0, 8),
+                        ),
                         content=ft.Column(
                             tight=True,
-                            spacing=6,
+                            spacing=12,
                             controls=[
-                                ft.Text("墨筑 MoZu", size=22, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
-                                ft.Text("移动端 Hugo 博客管理工具", size=13, color=ft.Colors.BLUE_GREY_600),
+                                ft.Row(
+                                    alignment=ft.MainAxisAlignment.START,
+                                    vertical_alignment=ft.CrossAxisAlignment.CENTER,
+                                    spacing=12,
+                                    controls=[
+                                        self._build_home_icon_container(),
+                                        ft.Column(
+                                            tight=True,
+                                            spacing=2,
+                                            controls=[
+                                                ft.Text("墨筑 MoZu", size=24, weight=ft.FontWeight.BOLD, color=ft.Colors.WHITE),
+                                                ft.Text("移动端 Hugo 博客管理工具", size=13, color=ft.Colors.with_opacity(0.9, ft.Colors.WHITE)),
+                                            ],
+                                        ),
+                                    ],
+                                ),
+                                ft.Text(timeflow["welcome"], size=15, weight=ft.FontWeight.W_600, color=ft.Colors.with_opacity(0.98, ft.Colors.WHITE)),
+                                ft.Text(
+                                    f"{timeflow['slot']} · {timeflow['time_range']}",
+                                    size=12,
+                                    color=ft.Colors.with_opacity(0.92, ft.Colors.WHITE),
+                                ),
+                                ft.Row(
+                                    spacing=8,
+                                    controls=[
+                                        ft.Container(
+                                            border_radius=999,
+                                            padding=ft.Padding(left=10, top=4, right=10, bottom=4),
+                                            bgcolor=ft.Colors.with_opacity(0.18, ft.Colors.WHITE),
+                                            content=ft.Text(f"v{APP_VERSION}", size=12, weight=ft.FontWeight.W_600, color=ft.Colors.WHITE),
+                                        ),
+                                        ft.Container(
+                                            border_radius=999,
+                                            padding=ft.Padding(left=10, top=4, right=10, bottom=4),
+                                            bgcolor=ft.Colors.with_opacity(0.18, ft.Colors.WHITE),
+                                            content=ft.Text("Hugo + GitHub API", size=12, color=ft.Colors.WHITE),
+                                        ),
+                                    ],
+                                ),
                             ],
                         ),
                     ),
                     ft.Container(
                         padding=16,
-                        border_radius=20,
+                        border_radius=18,
                         bgcolor=ft.Colors.WHITE,
+                        shadow=ft.BoxShadow(
+                            blur_radius=14,
+                            spread_radius=0,
+                            color=ft.Colors.with_opacity(0.08, ft.Colors.BLUE_GREY_900),
+                            offset=ft.Offset(0, 4),
+                        ),
                         content=ft.Column(
                             tight=True,
                             spacing=10,
                             controls=[
-                                ft.Row(
-                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                    controls=[
-                                        ft.Text("应用版本", weight=ft.FontWeight.W_600),
-                                        ft.Text(APP_VERSION, color=ft.Colors.BLUE_700),
-                                    ],
+                                ft.Text("时间流摘句", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
+                                ft.Text(
+                                    f"{timeflow['quote']} —— {timeflow['author']}",
+                                    size=14,
+                                    weight=ft.FontWeight.W_600,
+                                    color=primary,
                                 ),
-                                ft.Row(
-                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                    controls=[
-                                        ft.Text("UI 框架", weight=ft.FontWeight.W_600),
-                                        ft.Text(f"Flet {flet_version}"),
-                                    ],
-                                ),
-                                ft.Row(
-                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                    controls=[
-                                        ft.Text("Python", weight=ft.FontWeight.W_600),
-                                        ft.Text(python_version),
-                                    ],
-                                ),
-                                ft.Row(
-                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                    controls=[
-                                        ft.Text("目标仓库", weight=ft.FontWeight.W_600),
-                                        ft.Text(f"{self.settings.repo_owner}/{self.settings.repo_name}", max_lines=1, overflow=ft.TextOverflow.ELLIPSIS),
-                                    ],
-                                ),
-                                ft.Row(
-                                    alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
-                                    controls=[
-                                        ft.Text("默认分支", weight=ft.FontWeight.W_600),
-                                        ft.Text(self.settings.github_branch or "main"),
-                                    ],
-                                ),
+                                ft.Text(timeflow["mood"], size=12, color=ft.Colors.BLUE_GREY_600),
+                                ft.Divider(height=1),
+                                ft.Text("应用信息", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
+                                ft.Divider(height=1),
+                                info_row("应用版本", APP_VERSION),
+                                info_row("UI 框架", f"Flet {flet_version}"),
+                                info_row("Python", python_version),
+                                info_row("目标仓库", repo_name),
+                                info_row("默认分支", self.settings.github_branch or "main"),
                             ],
                         ),
                     ),
                     ft.Container(
                         padding=16,
-                        border_radius=20,
+                        border_radius=18,
                         bgcolor=ft.Colors.WHITE,
+                        shadow=ft.BoxShadow(
+                            blur_radius=14,
+                            spread_radius=0,
+                            color=ft.Colors.with_opacity(0.08, ft.Colors.BLUE_GREY_900),
+                            offset=ft.Offset(0, 4),
+                        ),
                         content=ft.Column(
                             tight=True,
-                            spacing=8,
+                            spacing=10,
                             controls=[
-                                ft.Text("功能概览", size=16, weight=ft.FontWeight.BOLD),
-                                ft.Text("1. 读取 GitHub 上 content/posts 文章并快速切换编辑。", size=13, color=ft.Colors.BLUE_GREY_600),
-                                ft.Text("2. 手机端直接修改 Markdown，自动拼接 Front Matter 后发布。", size=13, color=ft.Colors.BLUE_GREY_600),
-                                ft.Text("3. 同步设置可在应用内保存，便于多设备快速恢复。", size=13, color=ft.Colors.BLUE_GREY_600),
+                                ft.Text("快速入口", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
+                                ft.ResponsiveRow(
+                                    spacing=10,
+                                    run_spacing=10,
+                                    controls=[
+                                        ft.Container(
+                                            col={"xs": 12, "sm": 6},
+                                            content=ft.FilledButton(
+                                                content=ft.Text("进入文章列表"),
+                                                icon=ft.icons.Icons.LIST_ALT,
+                                                style=ft.ButtonStyle(
+                                                    bgcolor=primary,
+                                                    color=ft.Colors.WHITE,
+                                                    shape=ft.RoundedRectangleBorder(radius=12),
+                                                ),
+                                                on_click=lambda _e: self.page.go(ROUTE_ARTICLES),
+                                            ),
+                                        ),
+                                        ft.Container(
+                                            col={"xs": 12, "sm": 6},
+                                            content=ft.OutlinedButton(
+                                                content=ft.Text("打开编辑器"),
+                                                icon=ft.icons.Icons.EDIT_NOTE,
+                                                style=ft.ButtonStyle(
+                                                    side=ft.BorderSide(1.2, primary),
+                                                    color=primary,
+                                                    shape=ft.RoundedRectangleBorder(radius=12),
+                                                ),
+                                                on_click=lambda _e: self.page.go(ROUTE_EDITOR),
+                                            ),
+                                        ),
+                                    ],
+                                ),
+                                ft.Text("支持直接在手机端编辑 Markdown 并发布到 GitHub 仓库。", size=13, color=ft.Colors.BLUE_GREY_600),
                             ],
                         ),
                     ),
@@ -750,6 +931,31 @@ class MozuMobileApp:
             content=ft.IconButton(icon=icon, tooltip=tooltip, on_click=on_click),
         )
 
+    def _toolbar_svg_button(self, *, src: str, tooltip: str, on_click) -> ft.Container:
+        button = ft.Container(
+            col={"xs": 2, "sm": 2, "md": 1},
+            alignment=ft.Alignment.CENTER,
+            tooltip=tooltip,
+            on_click=on_click,
+            on_hover=self._on_toolbar_svg_hover,
+            border_radius=10,
+            padding=8,
+            bgcolor=ft.Colors.TRANSPARENT,
+            animate=ft.Animation(120, "easeInOut"),
+            content=ft.Image(
+                src=src,
+                width=22,
+                height=22,
+                fit="contain",
+            ),
+        )
+        return button
+
+    def _on_toolbar_svg_hover(self, event: ft.ControlEvent) -> None:
+        is_hover = str(getattr(event, "data", "")).lower() == "true"
+        event.control.bgcolor = ft.Colors.with_opacity(0.1, ft.Colors.BLUE_700) if is_hover else ft.Colors.TRANSPARENT
+        event.control.update()
+
     def _is_compact_layout(self) -> bool:
         width = self.page.width or 0
         return width == 0 or width < 520
@@ -908,6 +1114,7 @@ class MozuMobileApp:
     def _on_route_change(self, _event: ft.RouteChangeEvent) -> None:
         self.page.views.clear()
         self.page.views.append(self._build_view())
+        self._sync_home_animated_state()
         self.page.update()
 
     async def refresh_articles(self) -> None:

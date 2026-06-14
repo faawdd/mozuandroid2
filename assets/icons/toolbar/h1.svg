@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- H1：H字形 + 数字1 -->
+  <line x1="4" y1="6" x2="4" y2="18" stroke="#222" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="4" y1="12" x2="11" y2="12" stroke="#222" stroke-width="1.6" stroke-linecap="round"/>
+  <line x1="11" y1="6" x2="11" y2="18" stroke="#222" stroke-width="1.8" stroke-linecap="round"/>
+  <!-- 数字 1 -->
+  <line x1="16" y1="9" x2="16" y2="18" stroke="#222" stroke-width="1.7" stroke-linecap="round"/>
+  <polyline points="14,10.5 16,9" stroke="#222" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

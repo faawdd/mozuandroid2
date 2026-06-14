@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- 加粗：两笔竖画，右侧更粗 -->
+  <path d="M7 5h5a3 3 0 0 1 0 6H7V5Z" stroke="#222" stroke-width="1.6" stroke-linejoin="round" fill="none"/>
+  <path d="M7 11h6a3.5 3.5 0 0 1 0 7H7V11Z" stroke="#222" stroke-width="1.6" stroke-linejoin="round" fill="none"/>
+  <line x1="7" y1="5" x2="7" y2="18" stroke="#222" stroke-width="1.6" stroke-linecap="round"/>
+</svg>
