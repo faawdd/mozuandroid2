@@ -936,12 +936,14 @@ class MozuMobileApp:
             col={"xs": 2, "sm": 2, "md": 1},
             alignment=ft.Alignment.CENTER,
             tooltip=tooltip,
-            on_click=on_click,
+            on_click=self._wrap_toolbar_svg_click(on_click),
             on_hover=self._on_toolbar_svg_hover,
             border_radius=10,
             padding=8,
+            scale=1.0,
             bgcolor=ft.Colors.TRANSPARENT,
             animate=ft.Animation(120, "easeInOut"),
+            animate_scale=ft.Animation(90, "easeOut"),
             content=ft.Image(
                 src=src,
                 width=22,
@@ -950,6 +952,29 @@ class MozuMobileApp:
             ),
         )
         return button
+
+    def _wrap_toolbar_svg_click(self, handler):
+        async def _on_click(event: ft.ControlEvent):
+            await self._animate_toolbar_button_press(event.control)
+            result = handler(event)
+            if asyncio.iscoroutine(result):
+                await result
+
+        return _on_click
+
+    async def _animate_toolbar_button_press(self, control: ft.Container) -> None:
+        control.scale = 0.92
+        control.bgcolor = ft.Colors.with_opacity(0.18, ft.Colors.BLUE_700)
+        control.update()
+        await asyncio.sleep(0.06)
+
+        control.scale = 1.0
+        control.bgcolor = ft.Colors.with_opacity(0.1, ft.Colors.BLUE_700)
+        control.update()
+        await asyncio.sleep(0.07)
+
+        control.bgcolor = ft.Colors.TRANSPARENT
+        control.update()
 
     def _on_toolbar_svg_hover(self, event: ft.ControlEvent) -> None:
         is_hover = str(getattr(event, "data", "")).lower() == "true"
