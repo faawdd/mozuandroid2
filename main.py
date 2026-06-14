@@ -85,8 +85,12 @@ class MozuMobileApp:
         self.loading = False
         self._current_loading_overlay: Optional[ft.Container] = None
         self._editor_body_container: Optional[ft.Container] = None
-        self._editor_scroll_view: Optional[ft.ListView] = None
+        self._editor_scroll_view: Optional[ft.Column] = None
         self._editor_card_container: Optional[ft.Container] = None
+        self._editor_line_gutter_container: Optional[ft.Container] = None
+        self._editor_meta_container: Optional[ft.Container] = None
+        self._compact_meta_toggle_button: Optional[ft.TextButton] = None
+        self._compact_editor_meta_visible = False
         self._home_icon_container: Optional[ft.Container] = None
         self._home_breathing_active = False
 
@@ -117,6 +121,7 @@ class MozuMobileApp:
             min_lines=18,
             max_lines=None,
             border_radius=18,
+            text_style=ft.TextStyle(font_family="Consolas", size=14),
             text_size=14,
             on_change=self._on_editor_change,
             on_selection_change=self._on_editor_selection_change,
@@ -126,7 +131,7 @@ class MozuMobileApp:
         )
         self.line_number_text = ft.Text(
             "1\n",
-            size=13,
+            size=14,
             color=ft.Colors.BLUE_GREY_400,
             text_align=ft.TextAlign.RIGHT,
             font_family="Consolas",
@@ -631,63 +636,13 @@ class MozuMobileApp:
                             ],
                         ),
                     ),
-                    ft.Container(
-                        padding=16,
-                        border_radius=18,
-                        bgcolor=ft.Colors.WHITE,
-                        shadow=ft.BoxShadow(
-                            blur_radius=14,
-                            spread_radius=0,
-                            color=ft.Colors.with_opacity(0.08, ft.Colors.BLUE_GREY_900),
-                            offset=ft.Offset(0, 4),
-                        ),
-                        content=ft.Column(
-                            tight=True,
-                            spacing=10,
-                            controls=[
-                                ft.Text("快速入口", size=16, weight=ft.FontWeight.BOLD, color=ft.Colors.BLUE_GREY_900),
-                                ft.ResponsiveRow(
-                                    spacing=10,
-                                    run_spacing=10,
-                                    controls=[
-                                        ft.Container(
-                                            col={"xs": 12, "sm": 6},
-                                            content=ft.FilledButton(
-                                                content=ft.Text("进入文章列表"),
-                                                icon=ft.icons.Icons.LIST_ALT,
-                                                style=ft.ButtonStyle(
-                                                    bgcolor=primary,
-                                                    color=ft.Colors.WHITE,
-                                                    shape=ft.RoundedRectangleBorder(radius=12),
-                                                ),
-                                                on_click=lambda _e: self.page.go(ROUTE_ARTICLES),
-                                            ),
-                                        ),
-                                        ft.Container(
-                                            col={"xs": 12, "sm": 6},
-                                            content=ft.OutlinedButton(
-                                                content=ft.Text("打开编辑器"),
-                                                icon=ft.icons.Icons.EDIT_NOTE,
-                                                style=ft.ButtonStyle(
-                                                    side=ft.BorderSide(1.2, primary),
-                                                    color=primary,
-                                                    shape=ft.RoundedRectangleBorder(radius=12),
-                                                ),
-                                                on_click=lambda _e: self.page.go(ROUTE_EDITOR),
-                                            ),
-                                        ),
-                                    ],
-                                ),
-                                ft.Text("支持直接在手机端编辑 Markdown 并发布到 GitHub 仓库。", size=13, color=ft.Colors.BLUE_GREY_600),
-                            ],
-                        ),
-                    ),
                 ],
             ),
         )
 
     def _build_article_card(self) -> ft.Container:
         return ft.Container(
+            expand=True,
             padding=16,
             border_radius=18,
             bgcolor=ft.Colors.WHITE,
@@ -719,7 +674,7 @@ class MozuMobileApp:
                         ],
                     ),
                     ft.Divider(height=1),
-                    self.article_list,
+                    ft.Container(expand=True, content=self.article_list),
                 ],
             ),
         )
@@ -750,37 +705,68 @@ class MozuMobileApp:
                             ],
                         ),
                     ),
-                    self._build_article_card(),
+                    ft.Container(expand=True, content=self._build_article_card()),
                 ],
             ),
         )
 
     def _build_editor_body(self) -> ft.Control:
         compact = self._is_compact_layout()
-        section_padding = 12 if compact else 18
-        body_padding = 8 if compact else 14
-        card_padding = 12 if compact else 16
-        line_gutter_width = 36 if compact else 44
+        section_padding = 8 if compact else 18
+        body_padding = 6 if compact else 14
+        card_padding = 8 if compact else 16
+        line_gutter_width = self._editor_line_gutter_width()
         keyboard_inset_bottom = self._keyboard_inset_bottom()
-        editor_card_height = self._editor_card_height(keyboard_inset_bottom)
+        self.editor_field.min_lines = 12 if compact else 18
+        self.editor_field.content_padding = 12 if compact else 16
+        self.title_field.content_padding = 10 if compact else 12
+        self.category_field.content_padding = 10 if compact else 12
+
+        self._editor_meta_container = ft.Container(
+            visible=(not compact) or self._compact_editor_meta_visible,
+            content=ft.ResponsiveRow(
+                spacing=8 if compact else 12,
+                run_spacing=8 if compact else 12,
+                controls=[
+                    ft.Container(col={"sm": 12, "md": 6}, content=self.title_field),
+                    ft.Container(col={"sm": 12, "md": 6}, content=self.category_field),
+                ],
+            ),
+        )
+
+        self._compact_meta_toggle_button = ft.TextButton(
+            content=ft.Text("收起元信息" if self._compact_editor_meta_visible else "编辑标题/分类"),
+            on_click=self._toggle_compact_editor_meta,
+        )
+
+        compact_meta_toggle = ft.Container(
+            visible=compact,
+            content=ft.Row(
+                alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
+                controls=[
+                    ft.Text(
+                        f"当前文件：{self.current_article.path if self.current_article else '未选择'}",
+                        size=11,
+                        color=ft.Colors.BLUE_GREY_600,
+                        max_lines=1,
+                        overflow=ft.TextOverflow.ELLIPSIS,
+                    ),
+                    self._compact_meta_toggle_button,
+                ],
+            ),
+        )
 
         self._editor_card_container = ft.Container(
-            height=editor_card_height,
+            expand=True,
             padding=card_padding,
-            border_radius=20,
+            border_radius=14 if compact else 20,
             bgcolor=ft.Colors.WHITE,
             content=ft.Column(
                 expand=True,
-                spacing=12,
+                spacing=8 if compact else 12,
                 controls=[
-                    ft.ResponsiveRow(
-                        spacing=12,
-                        run_spacing=12,
-                        controls=[
-                            ft.Container(col={"sm": 12, "md": 6}, content=self.title_field),
-                            ft.Container(col={"sm": 12, "md": 6}, content=self.category_field),
-                        ],
-                    ),
+                    compact_meta_toggle,
+                    self._editor_meta_container,
                     self.editor_toolbar,
                     ft.Container(
                         expand=True,
@@ -790,14 +776,7 @@ class MozuMobileApp:
                             expand=True,
                             spacing=0,
                             controls=[
-                                ft.Container(
-                                    width=line_gutter_width,
-                                    expand=False,
-                                    padding=ft.Padding(top=14, right=4),
-                                    bgcolor=ft.Colors.BLUE_GREY_50,
-                                    alignment=ft.Alignment.TOP_RIGHT,
-                                    content=self.line_number_text,
-                                ),
+                                self._build_editor_line_gutter(line_gutter_width),
                                 ft.VerticalDivider(width=1, color=ft.Colors.BLUE_GREY_100),
                                 ft.Container(expand=True, content=self.editor_field),
                             ],
@@ -807,14 +786,13 @@ class MozuMobileApp:
             ),
         )
 
-        self._editor_scroll_view = ft.ListView(
+        self._editor_scroll_view = ft.Column(
             expand=True,
             spacing=10 if compact else 14,
-            padding=0,
-            auto_scroll=False,
             controls=[
                 ft.Container(
                     key="editor-header-card",
+                    visible=not compact,
                     padding=section_padding,
                     border_radius=20,
                     bgcolor=ft.Colors.WHITE,
@@ -836,7 +814,7 @@ class MozuMobileApp:
                         ],
                     ),
                 ),
-                self._editor_card_container,
+                ft.Container(expand=True, content=self._editor_card_container),
             ],
         )
 
@@ -863,14 +841,77 @@ class MozuMobileApp:
             return
 
         if control_key in ("editor-title-field", "editor-category-field"):
-            self.page.scroll_to(key=control_key, duration=260)
-            self._editor_scroll_view.scroll_to(offset=0, duration=200)
+            pass
         elif control_key == "editor-body-field":
-            self._scroll_editor_to_cursor_line(duration=220)
+            pass
         self.page.update()
 
     def _editor_base_padding(self) -> int:
-        return 8 if self._is_compact_layout() else 14
+        return 6 if self._is_compact_layout() else 14
+
+    def _toggle_compact_editor_meta(self, _event: ft.ControlEvent) -> None:
+        if self._editor_meta_container is None:
+            return
+        self._compact_editor_meta_visible = not self._compact_editor_meta_visible
+        self._editor_meta_container.visible = self._compact_editor_meta_visible
+        if self._compact_meta_toggle_button is not None:
+            label = "收起元信息" if self._compact_editor_meta_visible else "编辑标题/分类"
+            self._compact_meta_toggle_button.content = ft.Text(label)
+        self.page.update()
+
+    def _build_editor_line_gutter(self, width: int) -> ft.Container:
+        editor_padding = self.editor_field.content_padding
+        try:
+            top_padding = int(editor_padding)
+        except (TypeError, ValueError):
+            top_padding = 16
+        self._editor_line_gutter_container = ft.Container(
+            width=width,
+            expand=False,
+            padding=ft.Padding(top=top_padding, right=4),
+            bgcolor=ft.Colors.BLUE_GREY_50,
+            alignment=ft.Alignment.TOP_RIGHT,
+            content=self.line_number_text,
+        )
+        return self._editor_line_gutter_container
+
+    def _editor_line_gutter_width(self, line_count: Optional[int] = None) -> int:
+        if line_count is None:
+            value = self.editor_field.value or ""
+            line_count = max(1, value.count("\n") + 1)
+        digits = len(str(max(1, line_count)))
+        compact_min = 48
+        regular_min = 56
+        # Reserve enough space for right-aligned multi-digit line numbers.
+        estimated = 30 + (digits * 10)
+        return max(compact_min if self._is_compact_layout() else regular_min, estimated)
+
+    def _estimated_visible_editor_rows(self) -> int:
+        page_height = int(self.page.height or 760)
+        keyboard_inset = self._keyboard_inset_bottom()
+        reserved_height = 360 + max(0, int(keyboard_inset * 0.35))
+        usable_height = max(220, page_height - reserved_height)
+        # 22px line height matches the editor's current typography.
+        return max(10, min(64, usable_height // 22))
+
+    def _build_visible_line_number_window(self, value: str, current_line_index: int) -> str:
+        logical_lines = value.split("\n") if value else [""]
+        line_count = len(logical_lines)
+        visible_rows = self._estimated_visible_editor_rows()
+        current_line_number = max(1, min(line_count, current_line_index + 1))
+
+        half_window = max(2, visible_rows // 2)
+        start_line = current_line_number - half_window
+        max_start = max(1, line_count - visible_rows + 1)
+        start_line = max(1, min(start_line, max_start))
+        end_line = min(line_count, start_line + visible_rows - 1)
+
+        digits = len(str(max(1, line_count)))
+        labels: list[str] = []
+        for line_number in range(start_line, end_line + 1):
+            marker = ">" if line_number == current_line_number else " "
+            labels.append(f"{marker}{str(line_number).rjust(digits + 1)}")
+        return "\n".join(labels) + "\n"
 
     def _update_editor_keyboard_padding(self, *, update_page: bool) -> None:
         if self.page.route != ROUTE_EDITOR or self._editor_body_container is None:
@@ -884,15 +925,8 @@ class MozuMobileApp:
             right=base_padding,
             bottom=base_padding + keyboard_inset_bottom,
         )
-        if self._editor_card_container is not None:
-            self._editor_card_container.height = self._editor_card_height(keyboard_inset_bottom)
         if update_page:
             self.page.update()
-
-    def _editor_card_height(self, keyboard_inset_bottom: int) -> int:
-        page_height = int(self.page.height or 760)
-        reserve_height = 250 + max(0, int(keyboard_inset_bottom * 0.35))
-        return max(320, page_height - reserve_height)
 
     def _cursor_line_index(self) -> int:
         value = self.editor_field.value or ""
@@ -902,12 +936,8 @@ class MozuMobileApp:
     def _scroll_editor_to_cursor_line(self, duration: int = 0) -> None:
         if self._editor_scroll_view is None or self.page.route != ROUTE_EDITOR:
             return
-
-        line_index = self._cursor_line_index()
-        line_height = 22
-        base_offset = 220
-        target_offset = max(0, base_offset + (line_index * line_height) - 120)
-        self._editor_scroll_view.scroll_to(offset=target_offset, duration=duration)
+        # Keep this hook for future enhancements while avoiding global page scrolling.
+        _ = duration
 
     def _keyboard_inset_bottom(self) -> int:
         media = getattr(self.page, "media", None)
@@ -993,12 +1023,15 @@ class MozuMobileApp:
         self._refresh_editor_metrics(update_page=True)
 
     def _on_editor_selection_change(self, _event: ft.ControlEvent) -> None:
-        self._scroll_editor_to_cursor_line(duration=120)
+        self._refresh_editor_metrics(update_page=True)
 
     def _refresh_editor_metrics(self, update_page: bool) -> None:
         value = self.editor_field.value or ""
         line_count = max(1, value.count("\n") + 1)
-        self.line_number_text.value = "\n".join(str(i) for i in range(1, line_count + 1)) + "\n"
+        current_line_index = self._cursor_line_index()
+        self.line_number_text.value = self._build_visible_line_number_window(value, current_line_index)
+        if self._editor_line_gutter_container is not None:
+            self._editor_line_gutter_container.width = self._editor_line_gutter_width(line_count)
         if update_page:
             self.page.update()
 
